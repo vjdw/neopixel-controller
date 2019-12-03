@@ -1,0 +1,23 @@
+{
+  "python.linting.enabled": true,
+  "python.jediEnabled": false,
+  "python.autoComplete.extraPaths": [
+    ".micropy\\BradenM-micropy-stubs-7a7d171\\frozen",
+    ".micropy\\BradenM-micropy-stubs-452a204\\frozen",
+    ".micropy\\BradenM-micropy-stubs-7a7d171\\stubs",
+    ".micropy\\neopixel-controller"
+  ],
+  "python.autoComplete.typeshedPaths": [
+    ".micropy\\BradenM-micropy-stubs-7a7d171\\frozen",
+    ".micropy\\BradenM-micropy-stubs-452a204\\frozen",
+    ".micropy\\BradenM-micropy-stubs-7a7d171\\stubs",
+    ".micropy\\neopixel-controller"
+  ],
+  "python.analysis.typeshedPaths": [
+    ".micropy\\BradenM-micropy-stubs-7a7d171\\frozen",
+    ".micropy\\BradenM-micropy-stubs-452a204\\frozen",
+    ".micropy\\BradenM-micropy-stubs-7a7d171\\stubs",
+    ".micropy\\neopixel-controller"
+  ],
+  "python.linting.pylintEnabled": true
+}
