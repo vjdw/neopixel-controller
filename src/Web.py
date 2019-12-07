@@ -15,16 +15,15 @@ def httpHandlerTestGet(httpClient, httpResponse):
     <html lang=en>
         <head>
             <meta charset="UTF-8" />
-            <title>TEST GET</title>
+            <title>backlight</title>
         </head>
         <body>
-            <h1>TEST GET</h1>
             Client IP address = %s
             <br />
             <form action="/test" method="post" accept-charset="ISO-8859-1">
-                R: <input type="number" name="R"><br />
-                G: <input type="number" name="G"><br />
-                B: <input type="number" name="B"><br />
+                R: <input type="number" name="R" min="0" max="255" value="0"><br />
+                G: <input type="number" name="G" min="0" max="255" value="0"><br />
+                B: <input type="number" name="B" min="0" max="255" value="0"><br />
                 <input type="submit" value="Submit">
             </form>
         </body>
@@ -48,19 +47,18 @@ def httpHandlerTestPost(httpClient, httpResponse):
     <html lang=en>
         <head>
             <meta charset="UTF-8" />
-            <title>TEST POST</title>
+            <title>backlight</title>
         </head>
         <body>
-            <h1>TEST POST</h1>
             <form action="/test" method="post" accept-charset="ISO-8859-1">
-                R: <input type="number" name="R"><br />
-                G: <input type="number" name="G"><br />
-                B: <input type="number" name="B"><br />
+                R: <input type="number" name="R" min="0" max="255" value="%s"><br />
+                G: <input type="number" name="G" min="0" max="255" value="%s"><br />
+                B: <input type="number" name="B" min="0" max="255" value="%s"><br />
                 <input type="submit" value="Submit">
             </form>
         </body>
     </html>
-    """
+    """ % (formData["R"], formData["G"], formData["B"])
     httpResponse.WriteResponseOk(headers=None, contentType="text/html", contentCharset="UTF-8", content=content)
 
 mws = MicroWebSrv(webPath="/www")

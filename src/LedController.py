@@ -35,3 +35,27 @@ class LedController:
         self.R = r
         self.G = g
         self.B = b
+
+    def increase_red(self, delta):
+        self.R += delta
+        if self.R > 255:
+            self.R = 0
+        for i in range(self.leds.n):
+            self.leds[i] = (self.R, self.G, self.B)
+        self.leds.write()
+
+    def increase_green(self, delta):
+        self.G += delta
+        if self.G > 255:
+            self.G = 0
+        for i in range(self.leds.n):
+            self.leds[i] = (self.R, self.G, self.B)
+        self.leds.write()
+
+    def increase_blue(self, delta):
+        self.B += delta
+        if self.B > 255:
+            self.B = 0
+        for i in range(self.leds.n):
+            self.leds[i] = (self.R, self.G, self.B)
+        self.leds.write()
