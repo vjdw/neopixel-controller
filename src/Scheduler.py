@@ -11,6 +11,7 @@ class Scheduler:
     def __init__(self, ledController):
         self.ledController = ledController
 
+        self.dirty = False
         self.mode = "schedule"
         self.static_colour = (5, 4, 3, 0)
 
@@ -21,18 +22,18 @@ class Scheduler:
         midnight_ticks_tomorrow = utime.mktime((now[0], now[1], now[2] + 1, 0, 0, 0, 0, 0))
         self.ticks_in_a_day = midnight_ticks_tomorrow - midnight_ticks_today
 
-        self.schedule = [
-                ScheduleItem(0, 0, 0, 0, utime.mktime((now[0], now[1], now[2], 5, 50, 0, 0, 0)) - midnight_ticks_today),
-                ScheduleItem(16, 4, 1, 0, utime.mktime((now[0], now[1], now[2], 6, 0, 0, 0, 0)) - midnight_ticks_today),
-                ScheduleItem(32, 8, 2, 0, utime.mktime((now[0], now[1], now[2], 6, 40, 0, 0, 0)) - midnight_ticks_today),
-                ScheduleItem(0, 0, 0, 0, utime.mktime((now[0], now[1], now[2], 6, 41, 0, 0, 0)) - midnight_ticks_today),
-                ScheduleItem(0, 0, 0, 0, utime.mktime((now[0], now[1], now[2], 15, 59, 0, 0, 0)) - midnight_ticks_today),
-                ScheduleItem(48, 12, 3, 0, utime.mktime((now[0], now[1], now[2], 16, 0, 0, 0, 0)) - midnight_ticks_today),
-                ScheduleItem(32, 8, 2, 0, utime.mktime((now[0], now[1], now[2], 21, 0, 0, 0, 0)) - midnight_ticks_today),
-                ScheduleItem(16, 4, 1, 0, utime.mktime((now[0], now[1], now[2], 23, 58, 0, 0, 0)) - midnight_ticks_today),
-                ScheduleItem(0, 0, 0, 0, utime.mktime((now[0], now[1], now[2], 23, 59, 0, 0, 0)) - midnight_ticks_today)
-            ]
-        self.schedule.sort(key=lambda x:x.ticks_past_midnight)
+        self.schedule = {
+                utime.mktime((now[0], now[1], now[2], 5, 50, 0, 0, 0)) - midnight_ticks_today: ScheduleItem(0, 0, 0, 0, utime.mktime((now[0], now[1], now[2], 5, 50, 0, 0, 0)) - midnight_ticks_today),
+                utime.mktime((now[0], now[1], now[2], 6, 0, 0, 0, 0)) - midnight_ticks_today: ScheduleItem(16, 4, 1, 0, utime.mktime((now[0], now[1], now[2], 6, 0, 0, 0, 0)) - midnight_ticks_today),
+                utime.mktime((now[0], now[1], now[2], 6, 40, 0, 0, 0)) - midnight_ticks_today: ScheduleItem(32, 8, 2, 0, utime.mktime((now[0], now[1], now[2], 6, 40, 0, 0, 0)) - midnight_ticks_today),
+                utime.mktime((now[0], now[1], now[2], 6, 41, 0, 0, 0)) - midnight_ticks_today: ScheduleItem(0, 0, 0, 0, utime.mktime((now[0], now[1], now[2], 6, 41, 0, 0, 0)) - midnight_ticks_today),
+                utime.mktime((now[0], now[1], now[2], 15, 59, 0, 0, 0)) - midnight_ticks_today: ScheduleItem(0, 0, 0, 0, utime.mktime((now[0], now[1], now[2], 15, 59, 0, 0, 0)) - midnight_ticks_today),
+                utime.mktime((now[0], now[1], now[2], 16, 0, 0, 0, 0)) - midnight_ticks_today: ScheduleItem(48, 12, 3, 0, utime.mktime((now[0], now[1], now[2], 16, 0, 0, 0, 0)) - midnight_ticks_today),
+                utime.mktime((now[0], now[1], now[2], 21, 0, 0, 0, 0)) - midnight_ticks_today: ScheduleItem(32, 8, 2, 0, utime.mktime((now[0], now[1], now[2], 21, 0, 0, 0, 0)) - midnight_ticks_today),
+                utime.mktime((now[0], now[1], now[2], 23, 58, 0, 0, 0)) - midnight_ticks_today: ScheduleItem(16, 4, 1, 0, utime.mktime((now[0], now[1], now[2], 23, 58, 0, 0, 0)) - midnight_ticks_today),
+                utime.mktime((now[0], now[1], now[2], 23, 59, 0, 0, 0)) - midnight_ticks_today: ScheduleItem(0, 0, 0, 0, utime.mktime((now[0], now[1], now[2], 23, 59, 0, 0, 0)) - midnight_ticks_today)
+        }
+        #self.schedule.sort(key=lambda x:x.ticks_past_midnight)
 
     def run(self):
         previously_set_mode = ""
@@ -40,41 +41,53 @@ class Scheduler:
         slept_since_set_mode = 0
 
         while True:
-            if self.mode == "schedule":
-                if slept_since_set_mode > 10000 or previously_set_mode != self.mode:
+            self.dirty = self.dirty or (self.mode == "schedule" and slept_since_set_mode > 10000)
+            if (self.dirty):
+                if self.mode == "schedule":
                     previously_set_mode = "schedule"
                     slept_since_set_mode = 0
                     self.apply_scheduled_colour()
-            elif self.mode == "on" and previously_set_mode != self.mode:
-                previously_set_mode = "on"
-                slept_since_set_mode = 0
-                self.ledController.fade_to_colour(self.static_colour[0], self.static_colour[1], self.static_colour[2], self.static_colour[3])
-            elif self.mode == "off" and previously_set_mode != self.mode:
-                previously_set_mode = "off"
-                slept_since_set_mode = 0
-                self.ledController.fade_to_colour(0, 0, 0, 0)
+                elif self.mode == "on":
+                    previously_set_mode = "on"
+                    slept_since_set_mode = 0
+                    self.ledController.fade_to_colour(self.static_colour[0], self.static_colour[1], self.static_colour[2], self.static_colour[3])
+                elif self.mode == "off":
+                    previously_set_mode = "off"
+                    slept_since_set_mode = 0
+                    self.ledController.fade_to_colour(0, 0, 0, 0)
+                self.dirty = False
 
             utime.sleep_ms(loop_delay_ms)
             slept_since_set_mode += loop_delay_ms
+            if slept_since_set_mode > 999999:
+                slept_since_set_mode = 0
 
     def apply_scheduled_colour(self):
+        if len(self.schedule) == 0:
+            self.ledController.fade_to_colour(0, 0, 0, 0)
+            return
+
         now = utime.localtime()
         now_ticks = utime.mktime(now)
         midnight_ticks = utime.mktime((now[0], now[1], now[2], 0, 0, 0, 0, 0))
         now_ticks_past_midnight = now_ticks - midnight_ticks
 
         schedule_next = None
-        for i, schedule_enum in enumerate(self.schedule):
-            if schedule_enum.ticks_past_midnight > now_ticks_past_midnight:
-                print("{0} <<<".format(schedule_enum.to_string()))
-                schedule_next = self.schedule[i]
-                schedule_previous = self.schedule[i-1]
+
+        sorted_keys = sorted(self.schedule.keys())
+
+        for i, schedule_key in enumerate(sorted_keys):
+            schedule_item = self.schedule[schedule_key]
+            if schedule_item.ticks_past_midnight > now_ticks_past_midnight:
+                print("{0} <<<".format(schedule_item.to_string()))
+                schedule_next = self.schedule[sorted_keys[i]]
+                schedule_previous = self.schedule[sorted_keys[i-1]]
                 break
             else:
-                print("{0}".format(schedule_enum.to_string()))
+                print("{0}".format(schedule_item.to_string()))
         if schedule_next is None:
-            schedule_next = self.schedule[0]
-            schedule_previous = self.schedule[-1]
+            schedule_next = self.schedule[sorted_keys[0]]
+            schedule_previous = self.schedule[sorted_keys[-1]]
             print("{0} <<<".format(schedule_next.to_string()))
 
         ticks_past_previous_schedule = now_ticks_past_midnight - schedule_previous.ticks_past_midnight
@@ -89,21 +102,35 @@ class Scheduler:
     def set_mode(self, mode):
         if mode == 'on' or mode == 'off' or mode == 'schedule':
             self.mode = mode
+            self.dirty = True
             return
 
         raise Exception('Invalid mode: ' + mode)
 
     def set_static_colour(self, r, g, b, w):
         self.static_colour = (r, g, b, w)
+        self.dirty = True
 
     def add_schedule_item(self, r, g, b, w, hour, minute):
         now = utime.localtime()
         midnight_ticks = utime.mktime((now[0], now[1], now[2], 0, 0, 0, 0, 0))
         new_schedule_ticks = utime.mktime((now[0], now[1], now[2], hour, minute, 0, 0, 0))
         new_schedule_ticks_past_midnight = new_schedule_ticks - midnight_ticks
+        self.schedule[new_schedule_ticks_past_midnight] = ScheduleItem(r, g, b, w, new_schedule_ticks_past_midnight)
+        self.dirty = True
 
-        self.schedule.append(ScheduleItem(r, g, b, w, new_schedule_ticks_past_midnight))
-        self.schedule.sort(key=lambda x:x.ticks_past_midnight)
+    def delete_schedule_item(self, hour, minute):
+        now = utime.localtime()
+        midnight_ticks = utime.mktime((now[0], now[1], now[2], 0, 0, 0, 0, 0))
+        new_schedule_ticks = utime.mktime((now[0], now[1], now[2], hour, minute, 0, 0, 0))
+        new_schedule_ticks_past_midnight = new_schedule_ticks - midnight_ticks
+        del self.schedule[new_schedule_ticks_past_midnight]
+        self.dirty = True
+
+    def to_json(self):
+        sorted_keys = sorted(self.schedule.keys())
+        schedule_json = '[{}]'.format(', '.join(self.schedule[x].to_json() for x in sorted_keys))
+        return '{{\"mode\":\"{}\", \"staticColour\":\"{}\", \"schedule\":{}}}'.format(self.mode, self.static_colour, schedule_json)
 
     def interpolate_colour(self, schedulePrevious, scheduleNext, ticks_past_midnight_now, colour):
         nextTicks = scheduleNext.ticks_past_midnight
@@ -121,7 +148,3 @@ class Scheduler:
             return getattr(schedulePrevious, colour) + round((ticks_past_previous_schedule / prev_next_diff_ticks) * (getattr(scheduleNext, colour) - getattr(schedulePrevious, colour)))
         else:
             return getattr(schedulePrevious, colour)
-
-    def to_json(self):
-        schedule_json = '[{}]'.format(', '.join(x.to_json() for x in self.schedule))
-        return '{{\"mode\":\"{}\", \"staticColour\":\"{}\", \"schedule\":{}}}'.format(self.mode, self.static_colour, schedule_json)
