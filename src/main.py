@@ -6,8 +6,11 @@ from LedController import LedController
 from Scheduler import Scheduler
 from Web import Web
 
-#ledController = LedController(13, 16)
-ledController = LedController(13, 30, 4)
+# Ambilight:
+ledController = LedController(13, 16, 3)
+# Backlight:
+#ledController = LedController(13, 30, 4)
+
 ledController.all_off()
 ledController.pulse_status_led(0, 0, 32, 0)
 

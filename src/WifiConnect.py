@@ -11,7 +11,7 @@ def connect():
         return
 
     station.active(True)
-    station.config(dhcp_hostname='backlight')
+    station.config(dhcp_hostname='ambilight')
     station.connect(ssid, password)
 
     while station.isconnected() == False:

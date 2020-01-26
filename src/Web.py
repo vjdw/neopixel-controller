@@ -1,4 +1,5 @@
 from microWebSrv import MicroWebSrv
+import ujson
 
 _ledController = None
 _scheduler = None
@@ -10,6 +11,57 @@ class Web:
         global _scheduler
         _ledController = ledController
         _scheduler = scheduler
+
+@MicroWebSrv.route('/state', 'GET')
+def httpHandlerStateGet(httpClient, httpResponse):
+    global _scheduler
+
+    content = _scheduler.to_json()
+
+    httpResponse.WriteResponseOk(   headers         = None,
+                                    contentType     = "application/json",
+                                    contentCharset  = "UTF-8",
+                                    content         = content)
+
+
+@MicroWebSrv.route('/state/mode', 'PUT')
+def httpHandlerModePut(httpClient, httpResponse):
+    global _scheduler
+
+    new_mode = httpClient.ReadRequestContent().decode('utf-8')
+    print(new_mode)
+    _scheduler.set_mode(new_mode)
+    httpResponse.WriteResponseOk(headers=None, contentType="text/html", contentCharset="UTF-8", content="")
+
+@MicroWebSrv.route('/state/staticcolour', 'PUT')
+def httpHandlerStaticColourPut(httpClient, httpResponse):
+    global _scheduler
+
+    colour_json = httpClient.ReadRequestContent().decode('utf-8')
+    print(colour_json)
+    colour = ujson.loads(colour_json)
+    _scheduler.set_static_colour(colour.get("r", 0), colour.get("g", 0), colour.get("b", 0), colour.get("w", 0))
+    httpResponse.WriteResponseOk(headers=None, contentType="text/html", contentCharset="UTF-8", content="")
+
+@MicroWebSrv.route('/state/schedule/<hour>/<minute>', 'PUT')
+def httpHandlerSchedulePut(httpClient, httpResponse, routeArgs):
+    global _scheduler
+
+    new_rgbw = httpClient.ReadRequestContent().decode('utf-8')
+    print(new_rgbw + ' at ' + str(routeArgs['hour']) + ':' + str(routeArgs['minute']))
+    # todo: put schedule
+    #_scheduler.set_mode(new_mode)
+    httpResponse.WriteResponseOk(headers=None, contentType="text/html", contentCharset="UTF-8", content="")
+
+@MicroWebSrv.route('/state/schedule/<hour>/<minute>', 'DELETE')
+def httpHandlerScheduleDelete(httpClient, httpResponse, routeArgs):
+    global _scheduler
+
+    new_rgbw = httpClient.ReadRequestContent().decode('utf-8')
+    print(new_rgbw + ' at ' + str(routeArgs['hour']) + ':' + str(routeArgs['minute']))
+    # todo: delete schedule
+    #_scheduler.set_mode(new_mode)
+    httpResponse.WriteResponseOk(headers=None, contentType="text/html", contentCharset="UTF-8", content="")
 
 @MicroWebSrv.route('/test')
 def httpHandlerTestGet(httpClient, httpResponse):
