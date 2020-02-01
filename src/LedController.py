@@ -28,7 +28,7 @@ class LedController:
         self.leds.write()
 
     def fade_to_colour(self, r, g, b, w):
-        steps = 50
+        steps = 20
         deltaR = (r - self.R) / steps
         deltaG = (g - self.G) / steps
         deltaB = (b - self.B) / steps
@@ -37,14 +37,21 @@ class LedController:
             return
 
         for step in range(steps):
+            step_colour = self.make_colour_tuple(int(self.R + (deltaR * step)), int(self.G + (deltaG * step)), int(self.B + (deltaB * step)), int(self.W + (deltaW * step)))
             for i in range(self.leds.n):
-                self.leds[i] = self.make_colour_tuple(int(self.R + (deltaR * step)), int(self.G + (deltaG * step)), int(self.B + (deltaB * step)), int(self.W + (deltaW * step)))
+                self.leds[i] = step_colour
             self.leds.write()
-            utime.sleep_ms(25)
+            utime.sleep_ms(50)
+        
         self.R = r
         self.G = g
         self.B = b
         self.W = w
+
+        # fix rounding errors
+        for i in range(self.leds.n):
+            self.leds[i] = self.make_colour_tuple(int(self.R), int(self.G), int(self.B), int(self.W))
+        self.leds.write()
 
     def make_colour_tuple(self, r, g, b, w):
         if self.bpp == 3:

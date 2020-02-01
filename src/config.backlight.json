@@ -1,0 +1,7 @@
+{
+    "hostname": "backlight",
+    "ssid": "BNET",
+    "led_data_pin": 13,
+    "led_count": 30,
+    "led_bpp": 4
+}

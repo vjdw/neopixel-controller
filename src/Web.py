@@ -61,7 +61,7 @@ def httpHandlerTestGet(httpClient, httpResponse):
 
     scheduleItems = ""
     for schedule_item in _scheduler.schedule:
-        scheduleItems = scheduleItems + "<div>{0}</div>".format(schedule_item.to_string())
+        scheduleItems = scheduleItems + "<div>{0}</div>".format(_scheduler.schedule[schedule_item].to_string())
 
     content = """\
     <!DOCTYPE html>

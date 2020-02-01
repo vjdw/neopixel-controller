@@ -33,10 +33,8 @@ class Scheduler:
                 utime.mktime((now[0], now[1], now[2], 23, 58, 0, 0, 0)) - midnight_ticks_today: ScheduleItem(16, 4, 1, 0, utime.mktime((now[0], now[1], now[2], 23, 58, 0, 0, 0)) - midnight_ticks_today),
                 utime.mktime((now[0], now[1], now[2], 23, 59, 0, 0, 0)) - midnight_ticks_today: ScheduleItem(0, 0, 0, 0, utime.mktime((now[0], now[1], now[2], 23, 59, 0, 0, 0)) - midnight_ticks_today)
         }
-        #self.schedule.sort(key=lambda x:x.ticks_past_midnight)
 
     def run(self):
-        previously_set_mode = ""
         loop_delay_ms = 250
         slept_since_set_mode = 0
 
@@ -44,15 +42,12 @@ class Scheduler:
             self.dirty = self.dirty or (self.mode == "schedule" and slept_since_set_mode > 10000)
             if (self.dirty):
                 if self.mode == "schedule":
-                    previously_set_mode = "schedule"
                     slept_since_set_mode = 0
                     self.apply_scheduled_colour()
                 elif self.mode == "on":
-                    previously_set_mode = "on"
                     slept_since_set_mode = 0
                     self.ledController.fade_to_colour(self.static_colour[0], self.static_colour[1], self.static_colour[2], self.static_colour[3])
                 elif self.mode == "off":
-                    previously_set_mode = "off"
                     slept_since_set_mode = 0
                     self.ledController.fade_to_colour(0, 0, 0, 0)
                 self.dirty = False
