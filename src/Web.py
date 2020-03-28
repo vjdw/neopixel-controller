@@ -41,6 +41,14 @@ def httpHandlerStaticColourPut(httpClient, httpResponse):
     _scheduler.set_static_colour(colour.get("r", 0), colour.get("g", 0), colour.get("b", 0), colour.get("w", 0))
     httpResponse.WriteResponseOk(headers=None, contentType="text/html", contentCharset="UTF-8", content="")
 
+@MicroWebSrv.route('/state/rainbowsettings', 'PUT')
+def httpHandlerRainbowSettingsPut(httpClient, httpResponse):
+    global _scheduler
+    rainbow_json = httpClient.ReadRequestContent().decode('utf-8')
+    rainbow = ujson.loads(rainbow_json)
+    _scheduler.set_rainbow_brightness(rainbow.get("brightness", 16))
+    httpResponse.WriteResponseOk(headers=None, contentType="text/html", contentCharset="UTF-8", content="")
+
 @MicroWebSrv.route('/state/schedule/<hour>/<minute>', 'PUT')
 def httpHandlerSchedulePut(httpClient, httpResponse, routeArgs):
     global _scheduler

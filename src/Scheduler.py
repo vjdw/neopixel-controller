@@ -2,6 +2,7 @@ import time
 import machine
 import time
 import utime
+import random
 from ntptime import settime
 
 from ScheduleItem import ScheduleItem
@@ -14,6 +15,9 @@ class Scheduler:
         self.dirty = False
         self.mode = "schedule"
         self.static_colour = (5, 4, 3, 0)
+
+        self.rainbow_brightness = 16
+        self.rainbow_brightness_allocation = [2, 1, 0]
 
         settime()
 
@@ -39,7 +43,7 @@ class Scheduler:
         slept_since_set_mode = 0
 
         while True:
-            self.dirty = self.dirty or (self.mode == "schedule" and slept_since_set_mode > 10000)
+            self.dirty = self.dirty or (self.mode in ("schedule", "random") and slept_since_set_mode > 8000)
             if (self.dirty):
                 if self.mode == "schedule":
                     slept_since_set_mode = 0
@@ -47,6 +51,9 @@ class Scheduler:
                 elif self.mode == "on":
                     slept_since_set_mode = 0
                     self.ledController.fade_to_colour(self.static_colour[0], self.static_colour[1], self.static_colour[2], self.static_colour[3])
+                elif self.mode == "random":
+                    slept_since_set_mode = 0
+                    self.apply_rainbow_colour()
                 elif self.mode == "off":
                     slept_since_set_mode = 0
                     self.ledController.fade_to_colour(0, 0, 0, 0)
@@ -94,8 +101,46 @@ class Scheduler:
         new_w = self.interpolate_colour(schedule_previous, schedule_next, now_ticks_past_midnight, 'W')
         self.ledController.fade_to_colour(new_r, new_g, new_b, new_w)
 
+    def apply_rainbow_colour(self):
+        if self.rainbow_brightness > 85:
+            self.rainbow_brightness = 85
+
+        # How the brightness units are allocated across RGB
+        self.rainbow_brightness_allocation = [2, 1, 0]
+
+        while True:
+            allocation_to_move = random.randint(0, 2)
+            while self.rainbow_brightness_allocation[allocation_to_move] == 0:
+                allocation_to_move = random.randint(0, 2)
+
+            # take a unit away...
+            self.rainbow_brightness_allocation[allocation_to_move] = self.rainbow_brightness_allocation[allocation_to_move] - 1
+
+            # ...and randomly add it to a neighbour
+            if random.randint(0, 1) == 0:
+                direction = 1
+            else:
+                direction = -1
+            allocation_to_move = allocation_to_move + direction
+            if allocation_to_move >= len(self.rainbow_brightness_allocation):
+                allocation_to_move = 0
+            self.rainbow_brightness_allocation[allocation_to_move] = self.rainbow_brightness_allocation[allocation_to_move] + 1
+            
+            # Prevent pure white (undo allocation and move allocation to the next neighbour)
+            if (0 not in self.rainbow_brightness_allocation):
+                self.rainbow_brightness_allocation[allocation_to_move] = self.rainbow_brightness_allocation[allocation_to_move] - 1
+                allocation_to_move = allocation_to_move + direction
+                if allocation_to_move >= len(self.rainbow_brightness_allocation):
+                    allocation_to_move = 0
+                self.rainbow_brightness_allocation[allocation_to_move] = self.rainbow_brightness_allocation[allocation_to_move] + 1
+
+            r = self.rainbow_brightness_allocation[0] * self.rainbow_brightness
+            g = self.rainbow_brightness_allocation[1] * self.rainbow_brightness
+            b = self.rainbow_brightness_allocation[2] * self.rainbow_brightness
+            self.ledController.fade_to_colour_slow(r, g, b, 0)
+
     def set_mode(self, mode):
-        if mode == 'on' or mode == 'off' or mode == 'schedule':
+        if mode == 'on' or mode == 'off' or mode == 'schedule' or mode == 'random':
             self.mode = mode
             self.dirty = True
             return
@@ -104,6 +149,10 @@ class Scheduler:
 
     def set_static_colour(self, r, g, b, w):
         self.static_colour = (r, g, b, w)
+        self.dirty = True
+
+    def set_rainbow_brightness(self, brightness):
+        self.rainbow_brightness = brightness
         self.dirty = True
 
     def add_schedule_item(self, r, g, b, w, hour, minute):

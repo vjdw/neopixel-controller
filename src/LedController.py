@@ -1,6 +1,7 @@
 import utime
 import machine
 import neopixel
+import random
 
 class LedController:
 
@@ -28,7 +29,7 @@ class LedController:
         self.leds.write()
 
     def fade_to_colour(self, r, g, b, w):
-        steps = 20
+        steps = 256
         deltaR = (r - self.R) / steps
         deltaG = (g - self.G) / steps
         deltaB = (b - self.B) / steps
@@ -41,8 +42,34 @@ class LedController:
             for i in range(self.leds.n):
                 self.leds[i] = step_colour
             self.leds.write()
-            utime.sleep_ms(50)
-        
+            utime.sleep_ms(4)
+
+        self.R = r
+        self.G = g
+        self.B = b
+        self.W = w
+
+        # fix rounding errors
+        for i in range(self.leds.n):
+            self.leds[i] = self.make_colour_tuple(int(self.R), int(self.G), int(self.B), int(self.W))
+        self.leds.write()
+
+    def fade_to_colour_slow(self, r, g, b, w):
+        steps = 32
+        deltaR = (r - self.R) / steps
+        deltaG = (g - self.G) / steps
+        deltaB = (b - self.B) / steps
+        deltaW = (w - self.W) / steps
+        if (deltaR == 0 and deltaG == 0 and deltaB == 0 and deltaW == 0):
+            return
+
+        for step in range(steps):
+            step_colour = self.make_colour_tuple(int(self.R + (deltaR * step)), int(self.G + (deltaG * step)), int(self.B + (deltaB * step)), int(self.W + (deltaW * step)))
+            for i in range(self.leds.n):
+                self.leds[i] = step_colour
+                self.leds.write()
+                utime.sleep_ms(50)
+
         self.R = r
         self.G = g
         self.B = b
