@@ -2,6 +2,7 @@ import time
 import machine
 import time
 import utime
+import ujson
 import random
 from ntptime import settime
 
@@ -26,17 +27,7 @@ class Scheduler:
         midnight_ticks_tomorrow = utime.mktime((now[0], now[1], now[2] + 1, 0, 0, 0, 0, 0))
         self.ticks_in_a_day = midnight_ticks_tomorrow - midnight_ticks_today
 
-        self.schedule = {
-                utime.mktime((now[0], now[1], now[2], 5, 50, 0, 0, 0)) - midnight_ticks_today: ScheduleItem(0, 0, 0, 0, utime.mktime((now[0], now[1], now[2], 5, 50, 0, 0, 0)) - midnight_ticks_today),
-                utime.mktime((now[0], now[1], now[2], 6, 0, 0, 0, 0)) - midnight_ticks_today: ScheduleItem(16, 4, 1, 0, utime.mktime((now[0], now[1], now[2], 6, 0, 0, 0, 0)) - midnight_ticks_today),
-                utime.mktime((now[0], now[1], now[2], 6, 40, 0, 0, 0)) - midnight_ticks_today: ScheduleItem(32, 8, 2, 0, utime.mktime((now[0], now[1], now[2], 6, 40, 0, 0, 0)) - midnight_ticks_today),
-                utime.mktime((now[0], now[1], now[2], 6, 41, 0, 0, 0)) - midnight_ticks_today: ScheduleItem(0, 0, 0, 0, utime.mktime((now[0], now[1], now[2], 6, 41, 0, 0, 0)) - midnight_ticks_today),
-                utime.mktime((now[0], now[1], now[2], 15, 59, 0, 0, 0)) - midnight_ticks_today: ScheduleItem(0, 0, 0, 0, utime.mktime((now[0], now[1], now[2], 15, 59, 0, 0, 0)) - midnight_ticks_today),
-                utime.mktime((now[0], now[1], now[2], 16, 0, 0, 0, 0)) - midnight_ticks_today: ScheduleItem(48, 12, 3, 0, utime.mktime((now[0], now[1], now[2], 16, 0, 0, 0, 0)) - midnight_ticks_today),
-                utime.mktime((now[0], now[1], now[2], 21, 0, 0, 0, 0)) - midnight_ticks_today: ScheduleItem(32, 8, 2, 0, utime.mktime((now[0], now[1], now[2], 21, 0, 0, 0, 0)) - midnight_ticks_today),
-                utime.mktime((now[0], now[1], now[2], 23, 58, 0, 0, 0)) - midnight_ticks_today: ScheduleItem(16, 4, 1, 0, utime.mktime((now[0], now[1], now[2], 23, 58, 0, 0, 0)) - midnight_ticks_today),
-                utime.mktime((now[0], now[1], now[2], 23, 59, 0, 0, 0)) - midnight_ticks_today: ScheduleItem(0, 0, 0, 0, utime.mktime((now[0], now[1], now[2], 23, 59, 0, 0, 0)) - midnight_ticks_today)
-        }
+        self.load_scheduler_config()
 
     def run(self):
         loop_delay_ms = 250
@@ -44,7 +35,7 @@ class Scheduler:
 
         while True:
             self.dirty = self.dirty or (self.mode in ("schedule", "random") and slept_since_set_mode > 8000)
-            if (self.dirty):
+            if self.dirty:
                 if self.mode == "schedule":
                     slept_since_set_mode = 0
                     self.apply_scheduled_colour()
@@ -125,9 +116,9 @@ class Scheduler:
         if allocation_to_move >= len(self.rainbow_brightness_allocation):
             allocation_to_move = 0
         self.rainbow_brightness_allocation[allocation_to_move] = self.rainbow_brightness_allocation[allocation_to_move] + 1
-        
+
         # Prevent pure white (undo allocation and move allocation to the next neighbour)
-        if (0 not in self.rainbow_brightness_allocation):
+        if 0 not in self.rainbow_brightness_allocation:
             self.rainbow_brightness_allocation[allocation_to_move] = self.rainbow_brightness_allocation[allocation_to_move] - 1
             allocation_to_move = allocation_to_move + direction
             if allocation_to_move >= len(self.rainbow_brightness_allocation):
@@ -161,6 +152,7 @@ class Scheduler:
         new_schedule_ticks = utime.mktime((now[0], now[1], now[2], hour, minute, 0, 0, 0))
         new_schedule_ticks_past_midnight = new_schedule_ticks - midnight_ticks
         self.schedule[new_schedule_ticks_past_midnight] = ScheduleItem(r, g, b, w, new_schedule_ticks_past_midnight)
+        self.save_scheduler_config()
         self.dirty = True
 
     def delete_schedule_item(self, hour, minute):
@@ -169,12 +161,8 @@ class Scheduler:
         new_schedule_ticks = utime.mktime((now[0], now[1], now[2], hour, minute, 0, 0, 0))
         new_schedule_ticks_past_midnight = new_schedule_ticks - midnight_ticks
         del self.schedule[new_schedule_ticks_past_midnight]
+        self.save_scheduler_config()
         self.dirty = True
-
-    def to_json(self):
-        sorted_keys = sorted(self.schedule.keys())
-        schedule_json = '[{}]'.format(', '.join(self.schedule[x].to_json() for x in sorted_keys))
-        return '{{\"mode\":\"{}\", \"staticColour\":\"{}\", \"schedule\":{}}}'.format(self.mode, self.static_colour, schedule_json)
 
     def interpolate_colour(self, schedulePrevious, scheduleNext, ticks_past_midnight_now, colour):
         nextTicks = scheduleNext.ticks_past_midnight
@@ -192,3 +180,26 @@ class Scheduler:
             return getattr(schedulePrevious, colour) + round((ticks_past_previous_schedule / prev_next_diff_ticks) * (getattr(scheduleNext, colour) - getattr(schedulePrevious, colour)))
         else:
             return getattr(schedulePrevious, colour)
+
+    def to_json(self):
+        sorted_keys = sorted(self.schedule.keys())
+        schedule_json = '[{}]'.format(', '.join(self.schedule[x].to_json() for x in sorted_keys))
+        return '{{\"mode\":\"{}\", \"staticColour\":\"{}\", \"schedule\":{}}}'.format(self.mode, self.static_colour, schedule_json)
+
+    def to_json_schedule_as_dict(self):
+        sorted_keys = sorted(self.schedule.keys())
+        schedule_json = '{{{}}}'.format(', '.join('{}: {}'.format(x, self.schedule[x].to_json()) for x in sorted_keys))
+        return '{{\"mode\":\"{}\", \"staticColour\":\"{}\", \"schedule\":{}}}'.format(self.mode, self.static_colour, schedule_json)
+
+    def save_scheduler_config(self):
+        config_file = open("scheduler.json", "w")
+        config_file.write(self.to_json_schedule_as_dict())
+        config_file.close()
+
+    def load_scheduler_config(self):
+        config = ujson.loads(open("scheduler.json").read())
+        self.mode = config["mode"]
+        self.static_colour = tuple(map(int, config["staticColour"].replace("(", "").replace(")", "").replace(" ", "").split(",")))
+
+        schedule = config["schedule"]
+        self.schedule = dict((key, ScheduleItem(schedule[key]['r'], schedule[key]['g'], schedule[key]['b'], schedule[key]['w'], key)) for key in schedule)

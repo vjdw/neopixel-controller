@@ -41,6 +41,12 @@ def httpHandlerStaticColourPut(httpClient, httpResponse):
     _scheduler.set_static_colour(colour.get("r", 0), colour.get("g", 0), colour.get("b", 0), colour.get("w", 0))
     httpResponse.WriteResponseOk(headers=None, contentType="text/html", contentCharset="UTF-8", content="")
 
+@MicroWebSrv.route('/state/triggersavecurrentconfig', 'POST')
+def httpHandlerSaveCurrentConfigPost(httpClient, httpResponse):
+    global _scheduler
+    _scheduler.save_scheduler_config()
+    httpResponse.WriteResponseOk(headers=None, contentType="text/html", contentCharset="UTF-8", content="")
+
 @MicroWebSrv.route('/state/rainbowsettings', 'PUT')
 def httpHandlerRainbowSettingsPut(httpClient, httpResponse):
     global _scheduler
