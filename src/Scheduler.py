@@ -17,7 +17,7 @@ class Scheduler:
         self.static_colour = (5, 4, 3, 0)
 
         self.rainbow_brightness = 16
-        self.rainbow_brightness_allocation = [2, 1, 0]
+        self.rainbow_brightness_allocation = [2, 0, 0]
 
         settime()
 
@@ -61,7 +61,11 @@ class Scheduler:
 
             utime.sleep_ms(loop_delay_ms)
             slept_since_set_mode += loop_delay_ms
-            if slept_since_set_mode > 999999:
+            if slept_since_set_mode > 86400000: # 24 hours
+                try:
+                    settime()
+                except Exception:
+                    print("Exception calling settime")
                 slept_since_set_mode = 0
 
     def apply_scheduled_colour(self):
@@ -105,39 +109,35 @@ class Scheduler:
         if self.rainbow_brightness > 85:
             self.rainbow_brightness = 85
 
-        # How the brightness units are allocated across RGB
-        self.rainbow_brightness_allocation = [2, 1, 0]
-
-        while True:
+        allocation_to_move = random.randint(0, 2)
+        while self.rainbow_brightness_allocation[allocation_to_move] == 0:
             allocation_to_move = random.randint(0, 2)
-            while self.rainbow_brightness_allocation[allocation_to_move] == 0:
-                allocation_to_move = random.randint(0, 2)
 
-            # take a unit away...
+        # take a unit away...
+        self.rainbow_brightness_allocation[allocation_to_move] = self.rainbow_brightness_allocation[allocation_to_move] - 1
+
+        # ...and randomly add it to a neighbour
+        if random.randint(0, 1) == 0:
+            direction = 1
+        else:
+            direction = -1
+        allocation_to_move = allocation_to_move + direction
+        if allocation_to_move >= len(self.rainbow_brightness_allocation):
+            allocation_to_move = 0
+        self.rainbow_brightness_allocation[allocation_to_move] = self.rainbow_brightness_allocation[allocation_to_move] + 1
+        
+        # Prevent pure white (undo allocation and move allocation to the next neighbour)
+        if (0 not in self.rainbow_brightness_allocation):
             self.rainbow_brightness_allocation[allocation_to_move] = self.rainbow_brightness_allocation[allocation_to_move] - 1
-
-            # ...and randomly add it to a neighbour
-            if random.randint(0, 1) == 0:
-                direction = 1
-            else:
-                direction = -1
             allocation_to_move = allocation_to_move + direction
             if allocation_to_move >= len(self.rainbow_brightness_allocation):
                 allocation_to_move = 0
             self.rainbow_brightness_allocation[allocation_to_move] = self.rainbow_brightness_allocation[allocation_to_move] + 1
-            
-            # Prevent pure white (undo allocation and move allocation to the next neighbour)
-            if (0 not in self.rainbow_brightness_allocation):
-                self.rainbow_brightness_allocation[allocation_to_move] = self.rainbow_brightness_allocation[allocation_to_move] - 1
-                allocation_to_move = allocation_to_move + direction
-                if allocation_to_move >= len(self.rainbow_brightness_allocation):
-                    allocation_to_move = 0
-                self.rainbow_brightness_allocation[allocation_to_move] = self.rainbow_brightness_allocation[allocation_to_move] + 1
 
-            r = self.rainbow_brightness_allocation[0] * self.rainbow_brightness
-            g = self.rainbow_brightness_allocation[1] * self.rainbow_brightness
-            b = self.rainbow_brightness_allocation[2] * self.rainbow_brightness
-            self.ledController.fade_to_colour_slow(r, g, b, 0)
+        r = (1 + self.rainbow_brightness_allocation[0]) * self.rainbow_brightness
+        g = self.rainbow_brightness_allocation[1] * self.rainbow_brightness
+        b = self.rainbow_brightness_allocation[2] * self.rainbow_brightness
+        self.ledController.fade_to_colour_slow(r, g, b, 0)
 
     def set_mode(self, mode):
         if mode == 'on' or mode == 'off' or mode == 'schedule' or mode == 'random':
