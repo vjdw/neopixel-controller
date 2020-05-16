@@ -2,6 +2,7 @@ import utime
 import machine
 import neopixel
 import random
+from Pixels import Pixels
 
 class LedController:
 
@@ -13,7 +14,12 @@ class LedController:
         self.G = 0
         self.B = 0
         self.W = 0
-        self.leds = neopixel.NeoPixel(machine.Pin(pin), led_count, bpp=bpp)
+        self.Target_R = 0
+        self.Target_G = 0
+        self.Target_B = 0
+        self.Target_W = 0
+
+        self.leds = Pixels(machine.Pin(pin), led_count, 2)
         self.bpp = bpp
 
     def all_off(self):
@@ -28,59 +34,59 @@ class LedController:
         self.leds[0] = self.make_colour_tuple(self.R, self.G, self.B, self.W)
         self.leds.write()
 
-    def fade_to_colour(self, r, g, b, w):
-        steps = 256
-        deltaR = (r - self.R) / steps
-        deltaG = (g - self.G) / steps
-        deltaB = (b - self.B) / steps
-        deltaW = (w - self.W) / steps
-        if (deltaR == 0 and deltaG == 0 and deltaB == 0 and deltaW == 0):
-            return
+    def set_target(self, r, g, b, w):
+        self.Target_R = r
+        self.Target_G = g
+        self.Target_B = b
+        self.Target_W = w
 
-        for step in range(steps):
-            step_colour = self.make_colour_tuple(int(self.R + (deltaR * step)), int(self.G + (deltaG * step)), int(self.B + (deltaB * step)), int(self.W + (deltaW * step)))
-            for i in range(self.leds.n):
-                self.leds[i] = step_colour
-            self.leds.write()
-            utime.sleep_ms(4)
+    def fade_to_target(self, delta_denominator):
+        if delta_denominator < 1:
+            delta_denominator = 1
 
-        self.R = r
-        self.G = g
-        self.B = b
-        self.W = w
+        deltaR = self.calc_fade_colour(self.R, self.Target_R, delta_denominator)
+        deltaG = self.calc_fade_colour(self.G, self.Target_G, delta_denominator)
+        deltaB = self.calc_fade_colour(self.B, self.Target_B, delta_denominator)
+        deltaW = self.calc_fade_colour(self.W, self.Target_W, delta_denominator)
 
-        # fix rounding errors
-        for i in range(self.leds.n):
-            self.leds[i] = self.make_colour_tuple(int(self.R), int(self.G), int(self.B), int(self.W))
-        self.leds.write()
+        print("target {}:{}:{} denom: {} delta {}:{}:{}".format(self.Target_R, self.Target_G, self.Target_B, delta_denominator, deltaR, deltaG, deltaB))
 
-    def fade_to_colour_slow(self, r, g, b, w):
-        steps = 32
-        deltaR = (r - self.R) / steps
-        deltaG = (g - self.G) / steps
-        deltaB = (b - self.B) / steps
-        deltaW = (w - self.W) / steps
-        if (deltaR == 0 and deltaG == 0 and deltaB == 0 and deltaW == 0):
-            return
+        colour_change = (abs(deltaR) + abs(deltaG) + abs(deltaB) + abs(deltaW)) > 0
 
-        for step in range(steps):
-            step_colour = self.make_colour_tuple(int(self.R + (deltaR * step)), int(self.G + (deltaG * step)), int(self.B + (deltaB * step)), int(self.W + (deltaW * step)))
+        if colour_change:
+            newR = int(self.R + deltaR)
+            newG = int(self.G + deltaG)
+            newB = int(self.B + deltaB)
+            newW = int(self.W + deltaW)
+
+            slow_mode = delta_denominator > 6
+            step_colour = self.make_colour_tuple(newR, newG, newB, newW)
             for i in range(self.leds.n):
                 self.leds[i] = step_colour
                 self.leds.write()
-                utime.sleep_ms(50)
+                utime.sleep_ms(int(max(0, 250 - int(8 * self.leds.n)) / self.leds.n))
+                if slow_mode:
+                    utime.sleep_ms(int(2400 / self.leds.n))
 
-        self.R = r
-        self.G = g
-        self.B = b
-        self.W = w
+            self.R = newR
+            self.G = newG
+            self.B = newB
+            self.W = newW
 
-        # fix rounding errors
-        for i in range(self.leds.n):
-            self.leds[i] = self.make_colour_tuple(int(self.R), int(self.G), int(self.B), int(self.W))
-        self.leds.write()
+        # True if we weren't at the target colour when this function was called
+        return colour_change
+
+    def calc_fade_colour(self, current, target, delta_denominator):
+        delta = target - current
+        if abs(delta) >= delta_denominator:
+            delta = delta / delta_denominator
+        elif delta > 0:
+            delta = 1
+        elif delta < 0:
+            delta = -1
+        return delta
 
     def make_colour_tuple(self, r, g, b, w):
         if self.bpp == 3:
-            return (r, g, b)
-        return (r, g, b, w)
+            return [g, r, b]
+        return [g, r, b, w]

@@ -17,10 +17,17 @@ class Scheduler:
         self.mode = "schedule"
         self.static_colour = (5, 4, 3, 0)
 
-        self.rainbow_brightness = 16
-        self.rainbow_brightness_allocation = [2, 0, 0]
+        self.rainbow_brightness = 85
+        self.rainbow_brightness_allocation = [5, 3, 0]
 
-        settime()
+        timeset = False
+        while not timeset:
+            try:
+                settime()
+                timeset = True
+            except Exception:
+                print("Exception calling settime, retrying...")
+                utime.sleep_ms(5000)
 
         now = utime.localtime()
         midnight_ticks_today = utime.mktime((now[0], now[1], now[2], 0, 0, 0, 0, 0))
@@ -31,37 +38,64 @@ class Scheduler:
 
     def run(self):
         loop_delay_ms = 250
+        loop_counter = 0
         slept_since_set_mode = 0
+        since_settime_ms = 0
+        fade_steps = 1
+        colour_changed = False
 
         while True:
-            self.dirty = self.dirty or (self.mode in ("schedule", "random") and slept_since_set_mode > 8000)
-            if self.dirty:
-                if self.mode == "schedule":
-                    slept_since_set_mode = 0
-                    self.apply_scheduled_colour()
-                elif self.mode == "on":
-                    slept_since_set_mode = 0
-                    self.ledController.fade_to_colour(self.static_colour[0], self.static_colour[1], self.static_colour[2], self.static_colour[3])
-                elif self.mode == "random":
-                    slept_since_set_mode = 0
-                    self.apply_rainbow_colour()
-                elif self.mode == "off":
-                    slept_since_set_mode = 0
-                    self.ledController.fade_to_colour(0, 0, 0, 0)
-                self.dirty = False
+            loop_counter += 1
+            if loop_counter > 255:
+                loop_counter = 0
 
-            utime.sleep_ms(loop_delay_ms)
+            self.dirty = self.dirty or (self.mode == "schedule" and slept_since_set_mode > 3600000) or (self.mode == "random" and slept_since_set_mode > 16000)
+            if self.dirty:
+                self.dirty = False
+                print('dirty mode={} slept_since_set_mode={}'.format(self.mode, slept_since_set_mode))
+                if self.mode == "schedule":
+                    self.apply_scheduled_colour()
+                    slept_since_set_mode = 0
+                elif self.mode == "on":
+                    self.ledController.set_target(self.static_colour[0], self.static_colour[1], self.static_colour[2], self.static_colour[3])
+                elif self.mode == "random":
+                    self.apply_rainbow_colour()
+                    slept_since_set_mode = 0
+                elif self.mode == "off":
+                    self.ledController.set_target(0, 0, 0, 0)
+
+            if self.mode == "random":
+                if loop_counter % 5 == 0:
+                    fade_steps = int(self.rainbow_brightness / 8)
+                    colour_changed = self.ledController.fade_to_target(fade_steps)
+                else:
+                    colour_changed = False
+            elif self.mode == "schedule":
+                if loop_counter % 8 == 0:
+                    fade_steps = 8
+                    colour_changed = self.ledController.fade_to_target(fade_steps)
+                else:
+                    colour_changed = False
+            else:
+                fade_steps = 1.414
+                colour_changed = self.ledController.fade_to_target(fade_steps)
+
+            if not colour_changed:
+                utime.sleep_ms(loop_delay_ms)
             slept_since_set_mode += loop_delay_ms
-            if slept_since_set_mode > 86400000: # 24 hours
+            since_settime_ms += loop_delay_ms
+
+            if since_settime_ms > 86400000: # 24 hours
                 try:
                     settime()
+                    since_settime_ms = 0
                 except Exception:
                     print("Exception calling settime")
-                slept_since_set_mode = 0
-
+                    since_settime_ms = 82800000 # retry in 1 hour
+                
     def apply_scheduled_colour(self):
         if len(self.schedule) == 0:
-            self.ledController.fade_to_colour(0, 0, 0, 0)
+            self.ledController.set_target(0, 0, 0, 0)
             return
 
         now = utime.localtime()
@@ -94,41 +128,40 @@ class Scheduler:
         new_g = self.interpolate_colour(schedule_previous, schedule_next, now_ticks_past_midnight, 'G')
         new_b = self.interpolate_colour(schedule_previous, schedule_next, now_ticks_past_midnight, 'B')
         new_w = self.interpolate_colour(schedule_previous, schedule_next, now_ticks_past_midnight, 'W')
-        self.ledController.fade_to_colour(new_r, new_g, new_b, new_w)
+        self.ledController.set_target(new_r, new_g, new_b, new_w)
 
     def apply_rainbow_colour(self):
         if self.rainbow_brightness > 85:
             self.rainbow_brightness = 85
 
-        allocation_to_move = random.randint(0, 2)
-        while self.rainbow_brightness_allocation[allocation_to_move] == 0:
+        allocation_unit_brightness = int(self.rainbow_brightness / 8)
+
+        is_warm_colour = False
+
+        while not is_warm_colour:
             allocation_to_move = random.randint(0, 2)
+            while self.rainbow_brightness_allocation[allocation_to_move] == 0:
+                allocation_to_move = random.randint(0, 2)
 
-        # take a unit away...
-        self.rainbow_brightness_allocation[allocation_to_move] = self.rainbow_brightness_allocation[allocation_to_move] - 1
-
-        # ...and randomly add it to a neighbour
-        if random.randint(0, 1) == 0:
-            direction = 1
-        else:
-            direction = -1
-        allocation_to_move = allocation_to_move + direction
-        if allocation_to_move >= len(self.rainbow_brightness_allocation):
-            allocation_to_move = 0
-        self.rainbow_brightness_allocation[allocation_to_move] = self.rainbow_brightness_allocation[allocation_to_move] + 1
-
-        # Prevent pure white (undo allocation and move allocation to the next neighbour)
-        if 0 not in self.rainbow_brightness_allocation:
+            # take a unit away...
             self.rainbow_brightness_allocation[allocation_to_move] = self.rainbow_brightness_allocation[allocation_to_move] - 1
+
+            # ...and randomly add it to a neighbour
+            if random.randint(0, 1) == 0:
+                direction = 1
+            else:
+                direction = -1
             allocation_to_move = allocation_to_move + direction
             if allocation_to_move >= len(self.rainbow_brightness_allocation):
                 allocation_to_move = 0
             self.rainbow_brightness_allocation[allocation_to_move] = self.rainbow_brightness_allocation[allocation_to_move] + 1
 
-        r = (1 + self.rainbow_brightness_allocation[0]) * self.rainbow_brightness
-        g = self.rainbow_brightness_allocation[1] * self.rainbow_brightness
-        b = self.rainbow_brightness_allocation[2] * self.rainbow_brightness
-        self.ledController.fade_to_colour_slow(r, g, b, 0)
+            is_warm_colour = self.rainbow_brightness_allocation[0] >= 4
+
+        r = self.rainbow_brightness_allocation[0] * allocation_unit_brightness
+        g = self.rainbow_brightness_allocation[1] * allocation_unit_brightness
+        b = self.rainbow_brightness_allocation[2] * allocation_unit_brightness
+        self.ledController.set_target(r, g, b, 0)
 
     def set_mode(self, mode):
         if mode == 'on' or mode == 'off' or mode == 'schedule' or mode == 'random':
