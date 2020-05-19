@@ -46,7 +46,7 @@ class Pixels:
         pulses = tuple()
         for pixel in self.pixels:
             pulses += pixel
-        pulses = pulses[:-1] + (T_RST,) # The last low should be long.
+        pulses += (T_RST,) # The last low should be long.
         self.rmt.write_pulses(pulses, start=1)
 
     def __setitem__(self, pixel_index, colors):

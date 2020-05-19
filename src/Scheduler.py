@@ -18,7 +18,7 @@ class Scheduler:
         self.static_colour = (5, 4, 3, 0)
 
         self.rainbow_brightness = 85
-        self.rainbow_brightness_allocation = [5, 3, 0]
+        self.rainbow_hue = 0
 
         timeset = False
         while not timeset:
@@ -49,7 +49,7 @@ class Scheduler:
             if loop_counter > 255:
                 loop_counter = 0
 
-            self.dirty = self.dirty or (self.mode == "schedule" and slept_since_set_mode > 3600000) or (self.mode == "random" and slept_since_set_mode > 16000)
+            self.dirty = self.dirty or ((self.mode == "schedule" or self.mode == "random") and slept_since_set_mode > 16000)
             if self.dirty:
                 self.dirty = False
                 print('dirty mode={} slept_since_set_mode={}'.format(self.mode, slept_since_set_mode))
@@ -72,7 +72,7 @@ class Scheduler:
                     colour_changed = False
             elif self.mode == "schedule":
                 if loop_counter % 8 == 0:
-                    fade_steps = 8
+                    fade_steps = 4
                     colour_changed = self.ledController.fade_to_target(fade_steps)
                 else:
                     colour_changed = False
@@ -134,34 +134,49 @@ class Scheduler:
         if self.rainbow_brightness > 85:
             self.rainbow_brightness = 85
 
-        allocation_unit_brightness = int(self.rainbow_brightness / 8)
+        # limit to reddish hues
+        self.rainbow_hue = random.randint(0, 160)
+        if self.rainbow_hue > 70:
+            self.rainbow_hue += 199
 
-        is_warm_colour = False
+        h = self.rainbow_hue
+        s = 1.0
+        l = 0.5
 
-        while not is_warm_colour:
-            allocation_to_move = random.randint(0, 2)
-            while self.rainbow_brightness_allocation[allocation_to_move] == 0:
-                allocation_to_move = random.randint(0, 2)
+        # hsl -> rgb
+        c = (1 - abs(2 * l - 1)) * s
+        x = c * (1 - abs((h / 60) % 2 - 1))
+        m = l - c/2
+        if 0 <= h and h < 60:
+            r = c + m
+            g = x + m
+            b = m
+        elif 60 <= h and h < 120:
+            r = x + m
+            g = c + m
+            b = m
+        elif 120 <= h and h < 180:
+            r = m
+            g = c + m
+            b = x + m
+        elif 180 <= h and h < 240:
+            r = m
+            g = x + m
+            b = c + m
+        elif 240 <= h and h < 300:
+            r = x + m
+            g = m
+            b = c + m
+        elif 300 <= h and h < 360:
+            r = c + m
+            g = m
+            b = x + m
 
-            # take a unit away...
-            self.rainbow_brightness_allocation[allocation_to_move] = self.rainbow_brightness_allocation[allocation_to_move] - 1
+        r *= self.rainbow_brightness
+        g *= self.rainbow_brightness
+        b *= self.rainbow_brightness
 
-            # ...and randomly add it to a neighbour
-            if random.randint(0, 1) == 0:
-                direction = 1
-            else:
-                direction = -1
-            allocation_to_move = allocation_to_move + direction
-            if allocation_to_move >= len(self.rainbow_brightness_allocation):
-                allocation_to_move = 0
-            self.rainbow_brightness_allocation[allocation_to_move] = self.rainbow_brightness_allocation[allocation_to_move] + 1
-
-            is_warm_colour = self.rainbow_brightness_allocation[0] >= 4
-
-        r = self.rainbow_brightness_allocation[0] * allocation_unit_brightness
-        g = self.rainbow_brightness_allocation[1] * allocation_unit_brightness
-        b = self.rainbow_brightness_allocation[2] * allocation_unit_brightness
-        self.ledController.set_target(r, g, b, 0)
+        self.ledController.set_target(int(r), int(g), int(b), 0)
 
     def set_mode(self, mode):
         if mode == 'on' or mode == 'off' or mode == 'schedule' or mode == 'random':

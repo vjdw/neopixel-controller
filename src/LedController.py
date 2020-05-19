@@ -19,7 +19,7 @@ class LedController:
         self.Target_B = 0
         self.Target_W = 0
 
-        self.leds = Pixels(machine.Pin(pin), led_count, 2)
+        self.leds = Pixels(machine.Pin(pin), led_count, 0, bpp)
         self.bpp = bpp
 
     def all_off(self):
